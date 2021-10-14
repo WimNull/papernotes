@@ -87,9 +87,6 @@ $$
 
 **Objective functional:**  
 $$
-\displaylines{x = a + b \\ y = b + c}
-$$
-$$
 \ L_D(x,z) = D(x) + [m-D(G(z))]^+
 \\\\\
 \ L_G(z) = D(G(z))+f_{P T}(S)
