@@ -91,6 +91,7 @@ $$
 \\\\
 \ L_G(z) = D(G(z))+f_{P T}(S)
 $$
+
 其中 $[·] = max(0, \ ·)$,  EBGAN改动了discriminator(auto-encoder), 鉴别器不再鉴别输入来自于$p_{data}$还是$p_g$, 而是去鉴别图像的重构性高不高。原始discriminator的目的是学会寻找$p_data$与$p_g$之间的差异进而给图像质量打分，现在不再通过寻找差异来打分，而是使用一种“一种强烈的记忆”仅仅记住$p_data$的形状，然后对于一个任意的输入x，只要x符合这个记忆的样子就给高分，反之给低分。
 &emsp;训练方法: 先可以预训练这个自编码器，然后生成器使用自编码器与排斥正则化进行优化训练
 
@@ -201,6 +202,7 @@ def forward(self, x, truncation, condition_vector=None):
 </div>
 
 &emsp; mutual information can be expressed as the difference of two entropy terms:
+
 $$
 I(X;Y) = H(X) − H(X|Y) = H(Y) − H(Y|X)
 \\\\
