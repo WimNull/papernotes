@@ -1,5 +1,11 @@
 # GAN论文笔记
 
+
+## [Auto-Encoding Variational Bayes(VAE-2014)](https://arxiv.org/pdf/1312.6114.pdf)
+
+&emsp; 变分自动编码器
+
+
 ## GAN分类
 ![gan_taxonomy](images/gan_taxonomy.jpg)
 
@@ -49,6 +55,23 @@
 • Use ReLU activation in generator for all layers except for the output, which uses Tanh.  
 • Use LeakyReLU activation in the discriminator for all layers.  
 
+## [Adversarial Autoencoders(AAE-2015)](https://arxiv.org/pdf/1511.05644.pdf)
+
+<table>
+<div align=center>
+<img src="images/aae_net1.png" />
+</div>
+<tr>
+    <td ><center><img src="images/aae_net2.png" ></center></td>
+    <td ><center><img src="images/aae_net3.png" ></center></td>
+</tr>
+</table>
+
+### 算法原理 
+&emsp;encoder把输入数据分布p(x)映射到一个预定的先验分布q(z)—z为随机数，decoder从q(z)分布重建出原有图像，判别器对p(x)和q(z)进行判别
+&emsp;训练步骤: 
+&emsp;1. 自编码器的重构图像，使decoder能够从encoder生成的编码数据恢复出原始图像内容；
+&emsp;2. 生成器和判别器的对抗学习，这里首先训练判别器D来区分输入的编码向量z来自q(z)还是p(z)，然后训练生成器（编码器）生成更加接近p(z)的q(z)来欺骗判别器D。
 
 ## [Energy-based Generative Adversarial Network(EBGAN-2017)](https://arxiv.org/pdf/1609.03126.pdf)
 
@@ -91,5 +114,103 @@ $$
 **平滑分辨率**
 <div align=center>
 <img src="images/progan_smooth.png" />
+</div>
+
+## [Semi-Supervised Learning with Generative Adversarial Networks(SGAN-2016)](https://arxiv.org/pdf/1606.01583.pdf)
+
+&emsp; 本文将产生式对抗网络（GAN）拓展到半监督学习，通过强制判别器来输出类别标签。我们在一个数据集上训练一个产生式模型 G 以及 一个判别器 D，输入是N类当中的一个。在训练的时候，D被用于预测输入是属于 N+1的哪一个，这个+1是对应了G的输出。
+<div align=center>
+<img src="images/sgan_net.png" />
+</div>
+
+## [Self-Attention Generative Adversarial Networks(SAGAN-2018)](https://arxiv.org/pdf/1805.08318.pdf)
+
+<div align=center>
+<img src="images/sagan_attn.png" />
+</div>
+
+&emsp; 在进入f(x)前通过一个1x1conv, 然后把特征图平铺为一个序列，然后与通道维度进行交换
+```python
+def forward(self,x):
+    # x(B, C, H, W)
+    m_batchsize,C,width ,height = x.size()
+    proj_query  = self.query_conv(x).view(m_batchsize,-1,width*height).permute(0,2,1) # B X CX(N)
+    proj_key =  self.key_conv(x).view(m_batchsize,-1,width*height) # B X C x (*W*H)
+    energy =  torch.bmm(proj_query,proj_key) # transpose check
+    # 第一列：第一个位置向量在其他位置所产生的注意力，其他位置同理
+    attention = self.softmax(energy) # BX (N) X (N) 
+    proj_value = self.value_conv(x).view(m_batchsize,-1,width*height) # B X C X N
+    # 与注意力相乘后得到全局热度值
+    out = torch.bmm(proj_value,attention.permute(0,2,1) )   # B X C X N
+    out = out.view(m_batchsize,C,width,height)
+    out = self.gamma*out + x
+    return out,attention
+```
+
+## [Large Scale GAN Training for High Fidelity Natural Image Synthesis(BigGAN-2019)](https://arxiv.org/pdf/1809.11096.pdf)
+
+**网络结构**
+
+<div align=center>
+<img src="images/biggan_net1.png" />
+</div>
+
+```python
+# BigGANBatchNorm
+def forward(self, x, truncation, condition_vector=None):
+    # Retreive pre-computed statistics associated to this truncation
+    coef, start_idx = math.modf(truncation / self.step_size)
+    start_idx = int(start_idx)
+    if coef != 0.0:  # Interpolate
+        running_mean = self.running_means[start_idx] * coef + self.running_means[start_idx + 1] * (1 - coef)
+        running_var = self.running_vars[start_idx] * coef + self.running_vars[start_idx + 1] * (1 - coef)
+    else:
+        running_mean = self.running_means[start_idx]
+        running_var = self.running_vars[start_idx]
+
+    if self.conditional:
+        running_mean = running_mean.unsqueeze(0).unsqueeze(-1).unsqueeze(-1)
+        running_var = running_var.unsqueeze(0).unsqueeze(-1).unsqueeze(-1)
+
+        weight = 1 + self.scale(condition_vector).unsqueeze(-1).unsqueeze(-1)
+        bias = self.offset(condition_vector).unsqueeze(-1).unsqueeze(-1)
+
+        out = (x - running_mean) / torch.sqrt(running_var + self.eps) * weight + bias
+    else:
+        out = F.batch_norm(x, running_mean, running_var, self.weight, self.bias,
+                            training=False, momentum=0.0, eps=self.eps)
+    return out
+```
+
+## [Adversarial Feature Learning(BiGAN-2016)](https://arxiv.org/pdf/1605.09782.pdf)
+
+<div align=center>
+<img src="images/bigan_net.png" />
+</div>
+
+## [Bidirectional Conditional Generative Adversarial Networks(BiCGAN-2017)](https://arxiv.org/pdf/1711.07461.pdf)
+
+<div align=center>
+<img src="images/bicgan_net.png" />
+</div>
+
+## [InfoGAN: Interpretable Representation Learning by Information Maximizing Generative Adversarial Nets(InfoGAN-2016)](https://arxiv.org/pdf/1606.03657.pdf)
+
+<div align=center>
+<img src="images/infogan_net.png" />
+</div>
+
+&emsp; mutual information can be expressed as the difference of two entropy terms:
+$$
+I(X;Y) = H(X) − H(X|Y) = H(Y) − H(Y|X)
+\newline
+\ _G^{min} \ _D^{max} V_I(D, G) = V(D,G) − λI(c; G(z, c)) 
+\newline
+\ _{G,Q}^{min} \ _D^{max} V_{InfoGAN}(D, G, Q) = V(D, G) − λL_I(G, Q) 
+$$
+
+## [Conditional Image Synthesis With Auxiliary Classifier GANs(ACGAN-2017)](https://arxiv.org/pdf/1610.09585.pdf)
+<div align=center>
+<img src="images/acgan_net.png" />
 </div>
 
