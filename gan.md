@@ -88,7 +88,7 @@ $$
 **Objective functional:**  
 $$
 \ L_D(x,z) = D(x) + [m-D(G(z))]^+
-\\\\\
+\\\\
 \ L_G(z) = D(G(z))+f_{P T}(S)
 $$
 其中 $[·] = max(0, \ ·)$,  EBGAN改动了discriminator(auto-encoder), 鉴别器不再鉴别输入来自于$p_{data}$还是$p_g$, 而是去鉴别图像的重构性高不高。原始discriminator的目的是学会寻找$p_data$与$p_g$之间的差异进而给图像质量打分，现在不再通过寻找差异来打分，而是使用一种“一种强烈的记忆”仅仅记住$p_data$的形状，然后对于一个任意的输入x，只要x符合这个记忆的样子就给高分，反之给低分。
@@ -98,7 +98,7 @@ $$
 主要贡献为提出Boundary Equilibrium GAN, 结构为一个生成器和自编码器如EBGAN图: 
 $$
 \begin{cases}\mathcal{L}_{D}=\mathcal{L}(x)-k_{t} \cdot \mathcal{L}\left(G\left(z_{D}\right)\right) & \text { for } \theta_{D} \\ \mathcal{L}_{G}=\mathcal{L}\left(G\left(z_{G}\right)\right) & \text { for } \theta_{G} \\ k_{t+1}=k_{t}+\lambda_{k}\left(\gamma \mathcal{L}(x)-\mathcal{L}\left(G\left(z_{G}\right)\right)\right) & \text { for each training step } t\end{cases}
-\newline
+\\\\
 \mathcal{M}_{global} = \mathcal{L}(x) + |\gamma \mathcal{L}(x) - \mathcal{L}(G(z_G))|
 $$
 
@@ -203,9 +203,9 @@ def forward(self, x, truncation, condition_vector=None):
 &emsp; mutual information can be expressed as the difference of two entropy terms:
 $$
 I(X;Y) = H(X) − H(X|Y) = H(Y) − H(Y|X)
-\newline
+\\\\
 \ _G^{min} \ _D^{max} V_I(D, G) = V(D,G) − λI(c; G(z, c)) 
-\newline
+\\\\
 \ _{G,Q}^{min} \ _D^{max} V_{InfoGAN}(D, G, Q) = V(D, G) − λL_I(G, Q) 
 $$
 
