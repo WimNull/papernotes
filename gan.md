@@ -216,3 +216,16 @@ $$
 <img src="images/acgan_net.png" />
 </div>
 
+## [Wasserstein GAN(WGAN-2017)](https://arxiv.org/pdf/1701.07875.pdf)
+
+**主要改进点**
+判别器最后一层去掉sigmoid
+生成器和判别器的loss不取log
+每次更新判别器的参数之后把它们的绝对值截断到不超过一个固定常数c
+不要用基于动量的优化算法（包括momentum和Adam），推荐RMSProp，SGD也行
+
+## [Unpaired Image-to-Image Translation using Cycle-Consistent Adversarial Networks(CycleGAN-2020)](https://arxiv.org/pdf/1703.10593.pdf)
+
+<div align=center>
+<img src="images/cyclegan_net.svg" />
+</div>
