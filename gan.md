@@ -103,7 +103,7 @@ $$
 \mathcal{M}_{global} = \mathcal{L}(x) + |\gamma \mathcal{L}(x) - \mathcal{L}(G(z_G))|
 $$
 
-## [Progressive Growing of GANs for Improved Quality, Stability, and Variation(PROGAN-2018)](https://arxiv.org/pdf/1710.10196.pdf)
+## [Progressive Growing of GANs for Improved Quality, Stability, and Variation(PROGAN/PGGAN-2018)](https://arxiv.org/pdf/1710.10196.pdf)
 
 ### 算法原理
 
