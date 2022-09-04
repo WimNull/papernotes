@@ -1,0 +1,96 @@
+# 先验求导知识
+
+$$
+A = softmax(Z) \\
+a_i = \frac{e^{z_i}}{\sum_{k}{e^{z_k}}} \\
+C = CE(A, Y) 
+$$
+
+$$
+\frac {\partial a_i}{\partial z_k} =
+\begin{cases}
+a_i(1-a_k) & i = k \\
+-a_ia_k    & i \neq k
+\end{cases}
+$$
+
+$$
+\frac {\partial C}{\partial z_k} = a_i - y_i
+$$
+
+对于常规分类问题，目前的网络都可以通过模型提取到每个类别的特征值，这个特征值通过softmax之后进行判定输出，使用交叉熵loss进行优化，由前面求导公式可以看出，交叉熵+softmax可以同时提升目标类的特征值同时抑制非目标类特征值。
+
+# 可微优化排列问题
+$$
+P = sinkhorn(X) \\
+Y = W@P \\
+L_{perm} = SUM(TopK(|Y|_{-1, M}, M-N))
+$$
+$TopK()$这儿选择最小的K个数，从表面来看确实是我们的优化目标，即通过$W@P$重排后选择的$M-N$个最小的数的和最小。
+假设 $W$ 的shape为(B, C)，则P的shape为(C, C)，为简单理解，这儿假设 $W$ 所有元素为非负，则有 
+$$
+\frac {\partial L_{perm}}{\partial Y} = Y^{'} =
+\begin{cases}
+1 & y_{i,j} 被topk选中 \\
+0    & others
+\end{cases}
+$$
+
+$$
+P^{'} = \frac {\partial L_{perm}}{\partial P} = W^{T}@Y^{'}
+$$
+由 `sinkhorn` 算法得知，功能类似于先对列做softmax，然后对行做softmax，推导梯度有些复杂，所以这假设梯度应该是类似的。
+所以 $P^{'}$ 都为非负，缩一 $P$ 的优化方向是确定，且都是朝较小的值的方向优化，这样就能获得足够小的loss，所以目前方法可以降低loss。因为 $P$ 的值都是向更小的值优化，所以就不能确定 $X$ 的值的优化方向，即不能优化出当前列是哪一列交换到这个位置。
+
+
+
+可微约束排列置换矩阵方法：
+设 $P$ 是一个排列置换矩阵，则 $ P @ P^T = E$ ，例如
+
+$$
+\begin{pmatrix}
+  0 & 0 & 1 & 0 \\
+  1 & 0 & 0 & 0 \\
+  0 & 0 & 0 & 1 \\
+  0 & 1 & 0 & 0 \\
+\end{pmatrix} @
+\begin{pmatrix}
+  0 & 1 & 0 & 0 \\
+  0 & 0 & 0 & 1 \\
+  1 & 0 & 0 & 0 \\
+  0 & 0 & 1 & 0 \\
+\end{pmatrix} = 
+\begin{pmatrix}
+  1 & 0 & 0 & 0 \\
+  0 & 1 & 0 & 0 \\
+  0 & 0 & 1 & 0 \\
+  0 & 0 & 0 & 1 \\
+\end{pmatrix}
+$$
+
+假设我们优化出一个矩阵
+$$
+\begin{pmatrix}
+  0 & 0 & 1 & 0 \\
+  1 & 0 & 0 & 0 \\
+  0 & 0 & 0 & 1 \\
+  0 & 1 & 0 & 0 \\
+\end{pmatrix} @
+\begin{pmatrix}
+  0 & 1 & 0 & 0 \\
+  0 & 0 & 0 & 1 \\
+  1 & 0 & 0 & 0 \\
+  0 & 0 & 1 & 0 \\
+\end{pmatrix} = 
+\begin{pmatrix}
+  1 & 0 & 0 & 0 \\
+  0 & 1 & 0 & 0 \\
+  0 & 0 & 1 & 0 \\
+  0 & 0 & 0 & 1 \\
+\end{pmatrix}
+$$
+
+## 参考资料
+https://baike.baidu.com/item/%E7%BD%AE%E6%8D%A2%E7%9F%A9%E9%98%B5/6497500
+
+https://arxiv.org/abs/1812.01243

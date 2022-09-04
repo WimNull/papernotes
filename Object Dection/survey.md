@@ -140,7 +140,7 @@ $$
 </div>
 
 ## 实现细节
-1. 特征提取: 原文方法大概是通过一个CNN网络(可以是VGG、ResNet), 输入$M \times N \times 3$大小的图片经过CNN特征提取网络固定变为$(M/16) \times (N/16) \times C$大小的特征图其中$C为特征通道数量。
+1. 特征提取: 原文方法大概是通过一个CNN网络(可以是VGG、ResNet), 输入$M \times N \times 3$大小的图片经过CNN特征提取网络固定变为$(M/16) \times (N/16) \times C$大小的特征图其中$C$为特征通道数量。
 2. RPN, 比较复杂的是创建对应的标签。1)先对RPN提出的框做做NMS, 然后根据gt_bbox和label对应在RPN采样的框上，分背景和前景。
 ```python
 #rpn中初始化定义的Layer
@@ -152,7 +152,34 @@ h = F.relu(self.conv1(x))  #x是extractor提取的feature maps
 rpn_locs = self.loc(h) 
 rpn_scores = self.score(h)		
 ```
+步骤：生成anchors–>softmax分类器提取positive anchors–>bbox regression回归positive anchors生成偏移量–>生成最终Proposals
+（1）利用reg层的偏移量，对所有的原始anchor进行修正
+（2）利用cls层的scores，按positive socres由大到小排列所有anchors，取前topN（比如6000个）个anchors
+（3）边界处理，把超出图像边界的positive anchor超出的部分收拢到图像边界处，防止后续RoI pooling时proposals超出边界。
+（4）剔除尺寸非常小的positive anchor
+（5）对剩余的positive anchors进行NMS（非极大抑制）
+（6）最后输出一堆proposals左上角和右下角坐标值（[x1,y1,x2,y2]对应原图MxN尺度）
 
+3. ROI pooling
+RoI pooling会有一个预设的pooled_w和pooled_h，表明要把每个proposal特征都统一为这么大的feature map
+（1）由于proposals坐标是基于MxN尺度的，先映射回(M/16)x(N/16)尺度
+（2）再将每个proposal对应的feature map区域分为pooled_w x pooled_h的网格
+（3）对网格的每一部分做max pooling
+（4）这样处理后，即使大小不同的proposal输出结果都是pooled_w x pooled_h固定大小，实现了固定长度输出
+
+4. 训练方法：Faster RCNN=backbone+RPN+分类定位层FC
+    （1）使用ImageNet训练的权重初始化backbone，随机初始化RPN，训练RPN。
+    $$
+    L(\{p_i\}, \{t_i\}) = L_{cls}(p_i, p_i^*) + \lambda p_i^*L_{reg}(t_i, t_i^*) \\
+    L_{reg}(t_i, t_i^*) = \sum_{i \in \{x,y,w,h\}}smooth_{L1}(t_i-t_i^*) \\
+    smooth_{L1}(x) = \begin{cases}
+    0.5x^2 & if |x|<1 \\
+    |x| - 0.5 & otherwise
+    \end{cases}
+    $$
+    （2）使用ImageNet训练的权重初始化backbone，固定RPN，训练分类定位层FC。
+    （3）固定backbone，再次训练RPN
+    （4）再次训练分类定位层FC
 
 # One-stage detector
 

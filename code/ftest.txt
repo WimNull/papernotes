@@ -1,0 +1,158 @@
+import random
+import torch
+import torch.nn.functional as F
+import numpy as np
+from torch import nn,optim
+from tqdm import tqdm
+
+from tensorboardX import SummaryWriter
+from apex.contrib.sparsity.permutation_search_kernels import accelerated_search_for_good_permutation
+from apex.contrib.sparsity.permutation_search_kernels.exhaustive_search import *
+
+torch.set_printoptions(precision=4, sci_mode=False, linewidth=1000)
+
+def sum_after_N_to_M(matrix:torch.Tensor, N=2, M=4):
+    matrix = matrix.view(-1, M).topk(k=N, dim=-1)[0]
+    return matrix.sum()
+
+
+def sinkhorn(x:torch.Tensor, times=2, temp=1):
+    x = x/temp
+    maxn = torch.max(x)
+    x = x-maxn
+    x = torch.exp(x)
+    for i in range(1, times):
+        x = x/x.sum(dim=1, keepdim=True)
+        x = x/x.sum(dim=0, keepdim=True)
+    return x
+
+def getseq(pw:torch.Tensor):
+    oriidxs = [i for i in range(pw.size(0))]
+    mask = torch.zeros_like(pw)
+    for i in range(pw.size(0)):
+        idx = oriidxs[pw[i, oriidxs].argmax()]
+        mask[i][idx] = 1
+        oriidxs.remove(idx)
+    return mask.argmax(dim=0)
+
+# 设置随机值
+def seed_set(seed):
+    random.seed(seed)
+    np.random.seed(seed)
+    torch.manual_seed(seed)
+    torch.cuda.manual_seed(seed)
+    torch.cuda.manual_seed_all(seed)  # if you are using multi-GPU.
+    # torch.backends.cudnn.enabled = True
+    torch.backends.cudnn.deterministic = True
+    torch.backends.cudnn.benchmark = False
+
+# seed_set(42)
+
+epochs = 20
+temp = 0.5
+L,C = 4,8
+N,M = 2,4
+
+
+# 需要重排的矩阵
+wt = torch.randn((L, C)).abs()
+# print(wt)
+options = {}
+options['strategy'] = 'progressive channel swap'
+seq = accelerated_search_for_good_permutation(wt)
+# print(seq)
+uppersum = torch.sum(wt.topk(k=round(C*N/M), dim=-1)[0])
+orisum = sum_after_N_to_M(wt, N=N, M=M)
+seasum = sum_after_N_to_M(wt[:,seq], N=N, M=M)
+# pw = torch.eye(C, C, requires_grad=True)
+pw = torch.randn((C, C), requires_grad=True)
+seq = getseq(pw)
+presum = sum_after_N_to_M(wt[:,seq], N=N, M=M)
+print('magnitude:', uppersum, orisum, seasum, presum)
+
+
+# # S0
+# x1 = pw.exp()
+# # S1
+# xsr = x1.sum(dim=1, keepdim=True)
+# x2 = x1/xsr
+# xsc = x2.sum(dim=0, keepdim=True)
+# x3 = x2/xsc
+# # S2
+# xsr = x3.sum(dim=1, keepdim=True)
+# x3 = x2/xsr
+# xsc = x3.sum(dim=0, keepdim=True)
+# x4 = x3/xsc
+
+# nw = wt@x4
+# loss1 = nw.view(-1, M).topk(k=M-N, dim=-1, largest=False)[0]
+# vals = list(globals().values())
+
+# for xx in vals:
+#     if isinstance(xx, torch.Tensor):
+#         if xx.requires_grad: xx.retain_grad()
+# loss = torch.sum(loss1)
+# loss.backward()
+
+# print(pw)
+# print(wt)
+# print(nw)
+# print(x4)
+# print()
+
+# print(nw.grad)
+# print(wt.T@nw.grad) # x4.grad
+# print()
+
+# print((-x4.grad*x3/xsc**2).sum(dim=0, keepdim=True)) # xsc.grad
+# # print(xsc.grad)
+# print(x4.grad/xsc+xsc.grad) # x3.grad
+# # print(x3.grad)
+# print()
+
+# print(x2.grad)
+# print(x1.grad)
+# print(pw.grad)
+
+# exit()
+
+
+# y = torch.tensor([i for i in range(C)], dtype=torch.long)
+y = torch.eye(C, C)
+print(y)
+
+writer = SummaryWriter('log/logtb')
+# optimizer = optim.SGD([pw], lr=1)
+optimizer = optim.AdamW([pw], lr=0.2)
+loop = tqdm(range(epochs))
+for i in loop:
+    P = sinkhorn(pw, times=3, temp=0.5)
+    # nw = wt@P
+    # loss = nw.abs().view(-1, M).topk(k=M-N, dim=-1, largest=False)[0]
+    # loss = torch.sum(loss)
+    P = torch.softmax(pw/temp, dim=0)
+    out = P@P.T
+    print(P)
+    print(out)
+    print(P.argmax(dim=0))
+    print((out-y)**2)
+    print(out.shape)
+    print()
+    
+    # loss = F.cross_entropy(out, y)
+    loss = F.mse_loss(out, y)
+
+    optimizer.zero_grad()
+    loss.backward()
+    optimizer.step()
+    writer.add_scalar('loss', loss.item(), global_step=i)
+    loop.set_description(f'loss: {loss.item():.4f}')
+
+
+# seq = getseq(pw)
+# postsum = sum_after_N_to_M(wt[:,seq], N=N, M=M)
+# seq = pw.argmax(dim=0)
+# # print(seq)
+# postsum2 = sum_after_N_to_M(wt[:,seq], N=N, M=M)
+
+# print('magnitude:', uppersum, orisum, seasum, presum, postsum, postsum2)
